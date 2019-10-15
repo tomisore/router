@@ -105,13 +105,11 @@ printf("ip test 1\n");
     /* Get ICMP header */
     sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 
-  sr_ethernet_hdr_t* eth_hdr =(sr_ethernet_hdr_t *) packet;
-printf("ip 2\n");
+    sr_ethernet_hdr_t* eth_hdr =(sr_ethernet_hdr_t *) packet;
     if (check_len_req(len) == 0) {
         printf("Ethernet header error:  mininum length not met \n");
         return;
     }
-printf("ip 3\n");
     /* Decrease ttl by 1 */
     ip_hdr->ip_ttl --;
     /* recompute checksum */
@@ -120,15 +118,12 @@ printf("ip 3\n");
         send_ICMP_message(sr, packet, len, (uint8_t)11 , (uint8_t)0, NULL,interface);
         return;
     }
-printf("ip 4\n");
     if(sr_get_interface(  sr,interface) == NULL){
         /* Packet is NOT destined for our router  */
         /* Verify checksum */
-printf("ip 4.5\n");
         if (check_ip_checksum(ip_hdr) == 0) {
             printf("IP Header checksum fails\n");
         }
- printf("ip 5\n");
          /* lookup destination IP in routing table */
         struct sr_rt* routing_entry = find_longeset_prefix_match(sr, ip_hdr->ip_dst);
         if(!routing_entry) {
@@ -139,30 +134,39 @@ printf("ip 4.5\n");
             create_ethernet_header (eth_hdr, new_packet, eth_hdr->ether_dhost, eth_hdr->ether_shost, htons(ethertype_ip));
 
             /* Create ip header */
-            create_ip_header (ip_hdr, new_packet, sr_get_interface(sr, interface)->ip, ip_hdr->ip_src);
+	    sr_ip_hdr_t *new_ip_hdr = (sr_ip_hdr_t *)(new_packet + sizeof(sr_ethernet_hdr_t));
+	    new_ip_hdr->ip_v = 4;
+	    new_ip_hdr->ip_hl = sizeof(sr_ip_hdr_t)/4;
+	    new_ip_hdr->ip_tos = 0;
+	    new_ip_hdr->ip_len = htons(sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
+	    new_ip_hdr->ip_id = htons(0);
+	    new_ip_hdr->ip_off = htons(IP_DF);
+	    new_ip_hdr->ip_ttl = 64;
+	    new_ip_hdr->ip_dst = ip_hdr->ip_src;
+	    new_ip_hdr->ip_p = ip_protocol_icmp;
+	    new_ip_hdr->ip_src =  sr_get_interface(sr, interface)->ip;
+	    new_ip_hdr->ip_sum = 0;
+	    new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
 
             /* Create icmp header */
-            create_icmp_type3_header (ip_hdr, new_packet, 3, 0);
-
+	    sr_icmp_t3_hdr_t *new_icmp_header = (sr_icmp_t3_hdr_t *)(new_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+	    new_icmp_header->icmp_type = 3;
+	    new_icmp_header->icmp_code = 0;
+	    new_icmp_header->unused = 0;
+	    new_icmp_header->next_mtu = 0;
+	    new_icmp_header->icmp_sum = 0;
+	    memcpy(new_icmp_header->data, ip_hdr, ICMP_DATA_SIZE);
+	    new_icmp_header->icmp_sum = cksum(new_icmp_header, sizeof(sr_icmp_t3_hdr_t));
+		
             /* Look up routing table for rt entry that is mapped to the source of received packet */
             struct sr_rt *src_lpm = find_longeset_prefix_match(sr, ip_hdr->ip_src);
-
-
-
             send_ICMP_message(sr, packet, len, (uint8_t)3 , (uint8_t)0, src_lpm, interface) ;
             return;
-        }
-printf("ip 6\n");
-        struct sr_if* routing_interface = sr_get_interface(sr, routing_entry->interface);
-printf("ip 7\n");
-        if(!routing_interface) {
-            printf("Error IP when fowarding: interface not found.\n");
-            return;
-        }
-        /*Check ARP cache for next hop ip */
-        send_packet_check_cache(sr, packet, len, routing_interface, routing_entry->gw.s_addr);
-    }
-    else{
+        }else{
+		struct sr_if* interface = sr_get_interface(  sr,interface) ;
+		send_packet_check_cache(sr, packet,  sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t), interface, ip_hdr->ip_dst);
+	}
+    }else{
         /* Packet is destined for our router  */
         if(ip_hdr->ip_p == ip_protocol_icmp){
            /* Checksum */
@@ -187,42 +191,33 @@ void process_arp_packet(struct sr_instance* sr,
         uint8_t * packet/* lent */,
         unsigned int len,
         char* interface/* lent */){
-printf("in arp 1\n");
         /* Get ARP header */
         sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)( packet + sizeof(sr_ethernet_hdr_t));
         /* Get Ethernet header */
         sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *) packet;
          /* ARP Cache */
         struct sr_arpcache *sr_cache = &sr->cache;
-printf("before if in arp\n");
         if (check_len_req(len) == 0) {
             printf("Ethernet header error:  mininum length not met \n");
             return;
         }
-printf("before interface\n");
         if(sr_get_interface( sr,interface ) == NULL){
             printf("ARP error:  Cannot find dest ip in router, Dropping packet \n");
             return;
         }
-printf("after interface\n");
         assert(arp_hdr->ar_op);
         if(ntohs(arp_hdr->ar_op) == arp_op_request){
              printf("ARP request recieved\n");
             /* store the incoming interface */
             struct sr_if* incoming_interface = sr_get_interface(sr, interface);
             assert(incoming_interface);
-printf("test 1 in if statement\n");
            /* create new arp rep since packet is lent */
             uint8_t* new_rep =  malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t));
-
-printf("2\n");
-
             /* Create Ethernet header */
             create_ethernet_header (eth_hdr, new_rep, sr_get_interface(sr, interface)->addr, eth_hdr->ether_shost, htons(ethertype_arp));
-printf("3\n");
+		
             /* Create ARP header */
             create_arp_header (arp_hdr, new_rep, incoming_interface);
-printf("4\n");
             /* Send out ARP reply */
             sr_send_packet(sr, new_rep, sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), incoming_interface->name);
             printf("Sent an ARP reply packet\n");
@@ -270,22 +265,14 @@ void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len
     sr_ethernet_hdr_t* eth_hdr = (sr_ethernet_hdr_t*) packet;
     /* construct IP header from packet */
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-
     struct sr_if* interface = sr_get_interface(sr, intf);
-
     /* get longest matching prefix of source IP */
     struct sr_rt* routable_entry = find_longeset_prefix_match(sr, ip_hdr->ip_src);
-    struct sr_if *rout_interface = sr_get_interface(sr, routable_entry->interface);
-printf("icmp 1\n");
     assert(routable_entry);
-printf("icmp 2\n");
     /* Echo Reply  */
     if(type == 0){
-        /* Ethernet: set source & dest Mac */
-printf("icmp 0 null\n");
         memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(uint8_t)*ETHER_ADDR_LEN);
         memcpy(eth_hdr->ether_shost, interface->addr,  sizeof(uint8_t)*ETHER_ADDR_LEN);
-printf("pass memcpy icmp\n");
         /* IP */
         uint32_t src = ip_hdr->ip_src;
         ip_hdr->ip_src = ip_hdr->ip_dst;
@@ -293,55 +280,49 @@ printf("pass memcpy icmp\n");
         ip_hdr->ip_ttl = 5;
         memset(&(ip_hdr->ip_sum), 0, sizeof(uint16_t));
         ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
-printf("icmp 3\n");
         /* ICMP */
         sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
         icmp_hdr->icmp_type = type;
         icmp_hdr->icmp_code = code;
         memset(&(icmp_hdr->icmp_sum), 0, sizeof(uint16_t));
         icmp_hdr->icmp_sum = cksum(icmp_hdr, len - sizeof(sr_ethernet_hdr_t) -sizeof(sr_ip_hdr_t));
-printf("echo\n");
+        printf("echo Replied\n");
         send_packet_check_cache(sr, packet, len, interface, src);
         return;
     }
     /* Destinaton not reachable/ host not reachable/ port unreachable   */
     if(type == 3){
-        if(rt_entry){
-            int packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
-            uint8_t *new_packet = malloc(packet_len);
-            struct sr_arpcache *sr_cache = &sr->cache;
-            struct sr_arpentry *entry = sr_arpcache_lookup(sr_cache, routable_entry->gw.s_addr);
-            if (entry){
-                printf("Found the ARP entry in the cache\n");
-                struct sr_if *out_iface = sr_get_interface(sr, routable_entry->interface);
+	struct sr_arpcache *sr_cache = &sr->cache;
+	int packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+	uint8_t *new_packet = malloc(packet_len);
+        if(routable_entry){
+	   struct  sr_arpentry* entry = sr_arpcache_lookup(sr_cache, routable_entry->interface);
+		if(entry){
+		        struct sr_if *rout_interface = sr_get_interface(sr, routable_entry->interface);
+			/* Modify ethernet header */
+			sr_ethernet_hdr_t *new_eth_hdr = (sr_ethernet_hdr_t *) new_packet;
+			memcpy(new_eth_hdr->ether_dhost, entry->mac, sizeof(uint8_t)*ETHER_ADDR_LEN);
+			memcpy(new_eth_hdr->ether_shost, rout_interface->addr, sizeof(uint8_t)*ETHER_ADDR_LEN);
 
-                /* Modify ethernet header */
-                sr_ethernet_hdr_t *new_eth_hdr = (sr_ethernet_hdr_t *) new_packet;
-                memcpy(new_eth_hdr->ether_dhost, entry->mac, sizeof(uint8_t)*ETHER_ADDR_LEN);
-                memcpy(new_eth_hdr->ether_shost, out_iface->addr, sizeof(uint8_t)*ETHER_ADDR_LEN);
+			/* Modify ip header */
+			sr_ip_hdr_t *new_ip_hdr = (sr_ip_hdr_t *) (new_packet + sizeof (sr_ethernet_hdr_t));
+			new_ip_hdr->ip_src = rout_interface->ip;
+			new_ip_hdr->ip_sum = 0;
+			new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
 
-                /* Modify ip header */
-                sr_ip_hdr_t *new_ip_hdr = (sr_ip_hdr_t *) (new_packet + sizeof (sr_ethernet_hdr_t));
-                new_ip_hdr->ip_src = rout_interface->ip;
-                new_ip_hdr->ip_sum = 0;
-                new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
-
-                sr_send_packet(sr, new_packet, len, out_iface->name);
-                free(entry);
-            } else {
-                /* If there is no match in our ARP cache, send ARP request. */
-                struct sr_arpreq *req = sr_arpcache_queuereq(sr_cache, routable_entry->gw.s_addr, new_packet, len, routable_entry->interface);
-                handle_arpreq(req, sr);
+			sr_send_packet(sr, new_packet, len, rout_interface->name);
+			free(entry);
+		    } else {
+			/* If there is no match in our ARP cache, send ARP request. */
+			struct sr_arpreq *req = sr_arpcache_queuereq(sr_cache, routable_entry->gw.s_addr, new_packet, len, routable_entry->interface);
+			handle_arpreq(req, sr);
             }
-            free(new_packet);
-        }
-
-    }
-
-    if(type == 11 ){
+	}
+	free(new_packet);
+    }if(type == 11 ){
         /* Modify ethernet header */
             /* construst new ICMP packet */
-
+	
         uint8_t* new_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t11_hdr_t));
             /* construct ethernet hdr */
         create_ethernet_header(eth_hdr, new_packet, sr_get_interface(sr, intf)->addr, eth_hdr->ether_shost, htons(ethertype_ip));
@@ -357,7 +338,7 @@ printf("echo\n");
         new_ip_hdr->ip_ttl = 64;
         new_ip_hdr->ip_dst = ip_hdr->ip_src;
         new_ip_hdr->ip_p = ip_protocol_icmp;
-        new_ip_hdr->ip_src = rout_interface->ip;
+        new_ip_hdr->ip_src = interface->ip;
         new_ip_hdr->ip_sum = 0;
         new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
 
@@ -379,14 +360,9 @@ printf("echo\n");
 }
 
 void create_ethernet_header (sr_ethernet_hdr_t * eth_hdr, uint8_t * new_packet, uint8_t *src_eth_addr, uint8_t *dest_eth_addr, uint16_t ether_type) {
-printf("in ethernet head\n");
     sr_ethernet_hdr_t *new_eth_hdr = (sr_ethernet_hdr_t *) new_packet;
-    assert(new_eth_hdr);
-    assert( src_eth_addr);
-     assert(dest_eth_addr);
     memcpy(new_eth_hdr->ether_shost, src_eth_addr, sizeof(uint8_t)*ETHER_ADDR_LEN);
     memcpy(new_eth_hdr->ether_dhost, dest_eth_addr, sizeof(uint8_t)*ETHER_ADDR_LEN);
-printf("test 2 ethhead\n");
     new_eth_hdr->ether_type = ether_type;
 }
 
@@ -421,17 +397,7 @@ void create_ip_header (sr_ip_hdr_t *ip_hdr, uint8_t* new_packet, uint32_t ip_src
     new_ip_hdr->ip_sum = 0;
     new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
 }
-/* Create ICMP type 3 header */
-void create_icmp_type3_header (sr_ip_hdr_t *ip_hdr, uint8_t* new_packet, uint8_t type, unsigned int code) {
-    sr_icmp_t3_hdr_t *new_icmp_header = (sr_icmp_t3_hdr_t *)(new_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-    new_icmp_header->icmp_type = type;
-    new_icmp_header->icmp_code = code;
-    new_icmp_header->unused = 0;
-    new_icmp_header->next_mtu = 0;
-    new_icmp_header->icmp_sum = 0;
-    memcpy(new_icmp_header->data, ip_hdr, ICMP_DATA_SIZE);
-    new_icmp_header->icmp_sum = cksum(new_icmp_header, sizeof(sr_icmp_t3_hdr_t));
-}
+
 /* Longest prefix matching */
 struct sr_rt *find_longeset_prefix_match(struct sr_instance *sr, uint32_t ip) {
         int len = 0;
@@ -480,25 +446,17 @@ int check_len_req(unsigned int len){
 
 /* Check the ARP cache, send packet or send ARP request  send packet to next_hop_ip*/
 void send_packet_check_cache(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_if* interface, uint32_t dest_ip) {
-    printf("send packet test\n");
     struct sr_arpentry* arp_in_cache = sr_arpcache_lookup(&sr->cache, dest_ip);
- printf("send pack 1\n");
     /* if cached, send packet through outgoing interface */
     if(arp_in_cache) {
-printf("send pack if\n");
         sr_ethernet_hdr_t* ehdr = (sr_ethernet_hdr_t*) packet;
-        /* set destination MAC to the mapped MAC */
-        memcpy(ehdr->ether_dhost, arp_in_cache->mac, ETHER_ADDR_LEN);
-        /* set the source MAC to the outgoing interface's MAC */
-        memcpy(ehdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
+        memcpy(ehdr->ether_dhost, arp_in_cache->mac, sizeof(unsigned char)*ETHER_ADDR_LEN);
+        memcpy(ehdr->ether_shost, interface->addr, sizeof(uint8_t)*ETHER_ADDR_LEN);
         sr_send_packet(sr, packet, len, interface->name);
-        free(arp_in_cache);
     } else {
-printf("send pack else\n");
         /* if not cached, use ARP request */
         struct sr_arpreq* arpreq = sr_arpcache_queuereq(&sr->cache, dest_ip, packet, len, interface->name);
-printf("before arpreq\n");
         handle_arpreq(arpreq, sr);
-printf("after arpreq\n");
     }
+    return;
 }
