@@ -68,9 +68,9 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
 		new_ip_hdr->ip_id = htons(0);
 		new_ip_hdr->ip_off = htons(IP_DF);
 		new_ip_hdr->ip_ttl = 64;
-		new_ip_hdr->ip_dst = ip_hdr->ip_src);
+		new_ip_hdr->ip_dst = ip_hdr->ip_src;
 		new_ip_hdr->ip_p = ip_protocol_icmp;
-		new_ip_hdr->ip_src = sr_get_interface(sr, interface)->ip,;
+		new_ip_hdr->ip_src = sr_get_interface(sr, interface)->ip;
 		new_ip_hdr->ip_sum = 0;
 		new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
                 /* Create ICMP Header */
