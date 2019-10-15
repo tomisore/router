@@ -250,7 +250,7 @@ printf("4\n");
                         /* set destination MAC to be received packet's sender MAC */
                         memcpy(eth_hdr->ether_dhost, arp_hdr->ar_sha, sizeof(unsigned char)* ETHER_ADDR_LEN);
                         /* set source MAC to be incoming interface's MAC */
-                        memcpy(eth_hdr->ether_shost, sr_get_interface(sr, packet->iface)->addr, ETHER_ADDR_LEN);
+                        memcpy(eth_hdr->ether_shost, sr_get_interface(sr, packet->iface)->addr, sizeof(unsigned char)* ETHER_ADDR_LEN);
                         sr_send_packet(sr, packet->buf, packet->len, packet->iface);
 
                         packet = packet->next;
