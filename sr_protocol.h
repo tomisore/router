@@ -148,6 +148,17 @@ struct sr_ethernet_hdr
 } __attribute__ ((packed)) ;
 typedef struct sr_ethernet_hdr sr_ethernet_hdr_t;
 
+/* Structure of a type11 ICMP header
+ */
+struct sr_icmp_t11_hdr {
+  uint8_t icmp_type;
+  uint8_t icmp_code;
+  uint16_t icmp_sum;
+  uint32_t unused;
+  uint8_t data[ICMP_DATA_SIZE];
+
+} __attribute__ ((packed)) ;
+typedef struct sr_icmp_t11_hdr sr_icmp_t11_hdr_t;
 
 
 enum sr_ip_protocol {
@@ -185,19 +196,6 @@ struct sr_arp_hdr
     uint32_t        ar_tip;             /* target IP address            */
 } __attribute__ ((packed)) ;
 typedef struct sr_arp_hdr sr_arp_hdr_t;
-
-
-/* Structure of a type11 ICMP header
- */
-struct sr_icmp_t11_hdr {
-  uint8_t icmp_type;
-  uint8_t icmp_code;
-  uint16_t icmp_sum;
-  uint32_t unused;
-  uint8_t data[ICMP_DATA_SIZE];
-
-} __attribute__ ((packed)) ;
-typedef struct sr_icmp_t11_hdr sr_icmp_t11_hdr_t;
 
 #define sr_IFACE_NAMELEN 32
 

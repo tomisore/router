@@ -45,7 +45,7 @@ struct sr_instance
 {
     int  sockfd;   /* socket to server */
     char user[32]; /* user name */
-    char host[32]; /* host name */ 
+    char host[32]; /* host name */
     char template[30]; /* template name if any */
     unsigned short topo_id;
     struct sockaddr_in sr_addr; /* address to server */
@@ -75,15 +75,18 @@ void sr_set_ether_addr(struct sr_instance* , const unsigned char* );
 void sr_print_if_list(struct sr_instance* );
 
 /*--HELPER METHODS--*/
-void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len, uint8_t type, uint8_t code);
+void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len, uint8_t type, uint8_t code, struct sr_rt* rt_entry);
 void send_packet_check_cache(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_if* interface, uint32_t dest_ip);
 int check_len_req(unsigned int len);
 int check_ip_checksum(sr_ip_hdr_t *hdr);
 int check_icmp_checksum(sr_icmp_hdr_t *hdr, int len);
 struct sr_rt *find_longeset_prefix_match(struct sr_instance *sr, uint32_t ip);
+void create_ip_header (sr_ip_hdr_t *ip_hdr, uint8_t* new_packet, uint32_t ip_src, uint32_t ip_dst) ;
 void create_arp_header (sr_arp_hdr_t* arp_hdr, uint8_t* new_packet, struct sr_if *src_iface);
 void create_ethernet_header (sr_ethernet_hdr_t * eth_hdr, uint8_t * new_packet, uint8_t *src_eth_addr, uint8_t *dest_eth_addr, uint16_t ether_type);
 void process_arp_packet(struct sr_instance* sr,uint8_t * packet/* lent */,unsigned int len,char* interface/* lent */);
 void process_ip_packet(struct sr_instance* sr,uint8_t * packet/* lent */,unsigned int len,char* interface/* lent */);
-
+void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr );
+void sr_arpcache_sweepreqs(struct sr_instance *sr);
+void create_icmp_type3_header (sr_ip_hdr_t *ip_hdr, uint8_t* new_packet, uint8_t type, unsigned int code) ;
 #endif /* SR_ROUTER_H */
