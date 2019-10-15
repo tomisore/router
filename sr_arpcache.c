@@ -38,7 +38,7 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
     struct sr_arpcache *sr_cache = &sr->cache;
     time_t curr_time;
     time(&curr_time);
-    if (difftime(curr_time, request->sent) >= 0.9){
+    if (difftime(curr_time, request->sent) >= 1.0){
         struct sr_packet *packet = request->packets;
         /* If packet is sent more than equal or more than 5 times, send ICMP host unreachable message */
         if ((request->times_sent) >= 5) {
@@ -60,8 +60,19 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
 		memcpy(new_eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(uint8_t)*ETHER_ADDR_LEN);
 		new_eth_hdr->ether_type = htons(ethertype_ip);
 		/* Create IP header */
-                create_ip_header (ip_hdr, new_packet, sr_get_interface(sr, interface)->ip, ip_hdr->ip_src);
-
+		sr_ip_hdr_t *new_ip_hdr = (sr_ip_hdr_t *)(new_packet + sizeof(sr_ethernet_hdr_t));
+		new_ip_hdr->ip_v = 4;
+		new_ip_hdr->ip_hl = sizeof(sr_ip_hdr_t)/4;
+		new_ip_hdr->ip_tos = 0;
+		new_ip_hdr->ip_len = htons(sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
+		new_ip_hdr->ip_id = htons(0);
+		new_ip_hdr->ip_off = htons(IP_DF);
+		new_ip_hdr->ip_ttl = 64;
+		new_ip_hdr->ip_dst = ip_hdr->ip_src);
+		new_ip_hdr->ip_p = ip_protocol_icmp;
+		new_ip_hdr->ip_src = sr_get_interface(sr, interface)->ip,;
+		new_ip_hdr->ip_sum = 0;
+		new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
                 /* Create ICMP Header */
 		sr_icmp_t3_hdr_t *new_icmp_header = (sr_icmp_t3_hdr_t *)(new_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 		new_icmp_header->icmp_type = 3;
