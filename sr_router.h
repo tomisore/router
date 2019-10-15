@@ -75,7 +75,7 @@ void sr_set_ether_addr(struct sr_instance* , const unsigned char* );
 void sr_print_if_list(struct sr_instance* );
 
 /*--HELPER METHODS--*/
-void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len, uint8_t type, uint8_t code, struct sr_rt* rt_entry);
+void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len, uint8_t type, uint8_t code,struct sr_rt* rt_entry, char* interface);
 void send_packet_check_cache(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_if* interface, uint32_t dest_ip);
 int check_len_req(unsigned int len);
 int check_ip_checksum(sr_ip_hdr_t *hdr);

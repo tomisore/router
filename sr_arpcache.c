@@ -49,7 +49,7 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
                 char *interface = packet->iface;
                 int packet_len  = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
                 uint8_t *new_packet = malloc(packet_len);  
-
+		struct sr_if *target_iface = sr_get_interface(sr, packet->iface);
                 /* Get Ethernet header */
                 sr_ethernet_hdr_t* eth_hdr = (sr_ethernet_hdr_t *) buf; 
 
@@ -69,7 +69,7 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
                 struct sr_rt *src_lpm = find_longeset_prefix_match(sr, ip_hdr->ip_src);
 
                 /* Send ICMP host unreachable message */
-		send_ICMP_message(sr, (uint8_t) new_packet, packet_len, 3, 0, src_lpm);
+		send_ICMP_message(sr, (uint8_t) new_packet, packet_len, 3, 0, src_lpm, target_iface);
                 
                 free(new_packet);
 

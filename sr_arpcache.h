@@ -148,5 +148,9 @@ int   sr_arpcache_destroy(struct sr_arpcache *cache);
 void *sr_arpcache_timeout(void *cache_ptr);
 void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr );
 void sr_arpcache_sweepreqs(struct sr_instance *sr);
+void create_ip_header (sr_ip_hdr_t *ip_hdr, uint8_t* new_packet, uint32_t ip_src, uint32_t ip_dst) ;
+void create_arp_header (sr_arp_hdr_t* arp_hdr, uint8_t* new_packet, struct sr_if *src_iface);
+void create_ethernet_header (sr_ethernet_hdr_t * eth_hdr, uint8_t * new_packet, uint8_t *src_eth_addr, uint8_t *dest_eth_addr, uint16_t ether_type);
+struct sr_rt *find_longeset_prefix_match(struct sr_instance *sr, uint32_t ip);
 
 #endif

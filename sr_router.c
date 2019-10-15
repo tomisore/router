@@ -117,7 +117,7 @@ printf("ip 3\n");
     /* recompute checksum */
     ip_hdr->ip_sum = cksum(ip_hdr,len);
     if(ip_hdr->ip_ttl == 0) {
-        send_ICMP_message(sr, packet, len, (uint8_t)11 , (uint8_t)0, NULL);
+        send_ICMP_message(sr, packet, len, (uint8_t)11 , (uint8_t)0, NULL,interface);
         return;
     }
 printf("ip 4\n");
@@ -149,7 +149,7 @@ printf("ip 4.5\n");
 		
 		
 		
-            send_ICMP_message(sr, packet, len, (uint8_t)3 , (uint8_t)0, src_lpm) ;
+            send_ICMP_message(sr, packet, len, (uint8_t)3 , (uint8_t)0, src_lpm, interface) ;
             return;
         }
 printf("ip 6\n");
@@ -173,12 +173,12 @@ printf("ip 7\n");
             /* If ICMP echo req*/
             if (icmp_hdr->icmp_code == (uint8_t) 0 ) {
                 /* send echo reply  */
-                send_ICMP_message(sr, packet, len, (uint8_t)0, (uint8_t) NULL, NULL);
+                send_ICMP_message(sr, packet, len, (uint8_t)0, (uint8_t) NULL, NULL,interface);
             }
         }
         else if (ip_hdr->ip_p == ip_protocol_udp || ip_hdr->ip_p == ip_protocol_tcp) {
            /* Send port Unreachable message */
-            send_ICMP_message(sr, packet, len, (uint8_t)3, (uint8_t)3, NULL);
+            send_ICMP_message(sr, packet, len, (uint8_t)3, (uint8_t)3, NULL, interface);
         }
     }
 }
@@ -264,18 +264,19 @@ printf("4\n");
     return;
 }
 
-void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len, uint8_t type, uint8_t code,struct sr_rt* rt_entry){
+void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len, uint8_t type, uint8_t code,struct sr_rt* rt_entry, char* intf){
 
     /* Get Ethernet header */
     sr_ethernet_hdr_t* eth_hdr = (sr_ethernet_hdr_t*) packet;
     /* construct IP header from packet */
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+	
+    struct sr_if* interface = sr_get_interface(sr, interface);
 
     /* get longest matching prefix of source IP */
     struct sr_rt* routable_entry = find_longeset_prefix_match(sr, ip_hdr->ip_src);
 printf("icmp 1\n");
     assert(routable_entry);
-    struct sr_if* interface = sr_get_interface(sr, routable_entry->interface);
 printf("icmp 2\n");
     /* Echo Reply  */
     if(type == 0 & code == NULL){
@@ -340,7 +341,7 @@ printf("echo\n");
         /* Modify ethernet header */
             /* construst new ICMP packet */
 
-        uint8_t* new_packet = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t11_hdr_t);
+        uint8_t* new_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t11_hdr_t));
             /* construct ethernet hdr */
         sr_ethernet_hdr_t* new_eth_hdr = (sr_ethernet_hdr_t*)new_packet;
         create_ethernet_header(eth_hdr, new_packet, sr_get_interface(sr, interface)->addr, eth_hdr->ether_shost, htons(ethertype_ip));
