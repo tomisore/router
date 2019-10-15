@@ -104,8 +104,8 @@ printf("ip test 1\n");
     sr_ip_hdr_t * ip_hdr = (sr_ip_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t));
     /* Get ICMP header */
     sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-		
-  sr_ethernet_hdr_t* eth_hdr =(sr_ethernet_hdr_t *) packet; 
+
+  sr_ethernet_hdr_t* eth_hdr =(sr_ethernet_hdr_t *) packet;
 printf("ip 2\n");
     if (check_len_req(len) == 0) {
         printf("Ethernet header error:  mininum length not met \n");
@@ -146,9 +146,9 @@ printf("ip 4.5\n");
 
             /* Look up routing table for rt entry that is mapped to the source of received packet */
             struct sr_rt *src_lpm = find_longeset_prefix_match(sr, ip_hdr->ip_src);
-		
-		
-		
+
+
+
             send_ICMP_message(sr, packet, len, (uint8_t)3 , (uint8_t)0, src_lpm, interface) ;
             return;
         }
@@ -270,16 +270,17 @@ void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len
     sr_ethernet_hdr_t* eth_hdr = (sr_ethernet_hdr_t*) packet;
     /* construct IP header from packet */
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-	
-    struct sr_if* interface = sr_get_interface(sr, interface);
+
+    struct sr_if* interface = sr_get_interface(sr, intf);
 
     /* get longest matching prefix of source IP */
     struct sr_rt* routable_entry = find_longeset_prefix_match(sr, ip_hdr->ip_src);
+    struct sr_if *rout_interface = sr_get_interface(sr, routable_entry->interface);
 printf("icmp 1\n");
     assert(routable_entry);
 printf("icmp 2\n");
     /* Echo Reply  */
-    if(type == 0 & code == NULL){
+    if(type == 0){
         /* Ethernet: set source & dest Mac */
 printf("icmp 0 null\n");
         memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(uint8_t)*ETHER_ADDR_LEN);
@@ -321,7 +322,7 @@ printf("echo\n");
 
                 /* Modify ip header */
                 sr_ip_hdr_t *new_ip_hdr = (sr_ip_hdr_t *) (new_packet + sizeof (sr_ethernet_hdr_t));
-                new_ip_hdr->ip_src = sr_get_interface(sr, interface)->ip;
+                new_ip_hdr->ip_src = rout_interface->ip;
                 new_ip_hdr->ip_sum = 0;
                 new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
 
@@ -337,14 +338,13 @@ printf("echo\n");
 
     }
 
-    if(type == 11 & code == 0){
+    if(type == 11 ){
         /* Modify ethernet header */
             /* construst new ICMP packet */
 
         uint8_t* new_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t11_hdr_t));
             /* construct ethernet hdr */
-        sr_ethernet_hdr_t* new_eth_hdr = (sr_ethernet_hdr_t*)new_packet;
-        create_ethernet_header(eth_hdr, new_packet, sr_get_interface(sr, interface)->addr, eth_hdr->ether_shost, htons(ethertype_ip));
+        create_ethernet_header(eth_hdr, new_packet, sr_get_interface(sr, intf)->addr, eth_hdr->ether_shost, htons(ethertype_ip));
         /* construct IP hdr */
         /*-------------------------------------------------------*/
         sr_ip_hdr_t *new_ip_hdr = (sr_ip_hdr_t *)(new_packet + sizeof(sr_ethernet_hdr_t));
@@ -357,7 +357,7 @@ printf("echo\n");
         new_ip_hdr->ip_ttl = 64;
         new_ip_hdr->ip_dst = ip_hdr->ip_src;
         new_ip_hdr->ip_p = ip_protocol_icmp;
-        new_ip_hdr->ip_src = sr_get_interface(sr, interface)->ip;
+        new_ip_hdr->ip_src = rout_interface->ip;
         new_ip_hdr->ip_sum = 0;
         new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
 
