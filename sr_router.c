@@ -32,6 +32,8 @@
  *
  *---------------------------------------------------------------------*/
 
+
+
 void sr_init(struct sr_instance* sr)
 {
     /* REQUIRES */
@@ -202,23 +204,6 @@ void process_arp_packet(struct sr_instance* sr,
             free(new_rep);
             return;
 
-            // /* cast to ARP hdr */
-            // sr_arp_hdr_t* arp_req_arp_hdr = (sr_arp_hdr_t*)(new_rep + sizeof(sr_ethernet_hdr_t));
-            // /* set MAC addr to incoming interface's MAC */
-            // memcpy(arp_req_arp_hdr->ar_sha, incoming_interface->addr, ETHER_ADDR_LEN);
-            // /* set IP addr to be incoming interface's IP */
-            // arp_req_arp_hdr->ar_sip = incoming_interface->ip;
-            // /* set target MAC to be received packet's sender MAC */
-            // memcpy(arp_req_arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
-            // /* set target IP to be received packet's sender IP */
-            // arp_req_arp_hdr->ar_tip = target_ip;
-            // arp_req_arp_hdr->ar_op = htons(arp_op_reply);
-
-            // send_packet_check_cache(sr, new_rep, len, incoming_interface, target_ip);
-            // free(new_rep);
-            // printf("ARP reply sent\n");
-            // return;
-
         }
 
         if(ntohs(arp_hdr->ar_op) == arp_op_reply){
@@ -329,7 +314,7 @@ void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len
         sr_ethernet_hdr_t* new_eth_hdr = (sr_ethernet_hdr_t*)new_packet;
         create_ethernet_header(eth_hdr, new_packet, sr_get_interface(sr, interface)->addr, eth_hdr->ether_shost, htons(ethertype_ip)); 
         /* construct IP hdr */
-        /////////////////////////////////////////////////////
+        /*-------------------------------------------------------*/
         sr_ip_hdr_t *new_ip_hdr = (sr_ip_hdr_t *)(new_packet + sizeof(sr_ethernet_hdr_t));
         new_ip_hdr->ip_v = 4;
         new_ip_hdr->ip_hl = sizeof(sr_ip_hdr_t)/4;
@@ -352,7 +337,7 @@ void send_ICMP_message(struct sr_instance* sr, uint8_t* packet, unsigned int len
         new_icmp_hdr->icmp_sum = 0;
         memcpy(new_icmp_hdr->data, ip_hdr, ICMP_DATA_SIZE);
         new_icmp_hdr->icmp_sum = cksum(new_icmp_hdr, sizeof(sr_icmp_t11_hdr_t));
-        //////////////////////////////////////////////////
+        /*-------------------------------------------------------*/
         send_packet_check_cache(sr, new_packet, sizeof(new_packet), interface,ip_hdr->ip_src );
         free(new_packet);
         return;
