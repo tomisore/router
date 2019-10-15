@@ -25,7 +25,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
     struct sr_arpcache *sr_cache = &sr->cache;
     struct sr_arpreq *cur_req = sr_cache->requests;
     /* Save next req, because handle arpreq may destroy cur_req*/
-    
+
     while(cur_req){
 	struct sr_arpreq *next_req = cur_req->next;;
         handle_arpreq(cur_req, sr);
@@ -40,7 +40,7 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
     time_t curr_time;
     time(&curr_time);
     if (difftime(curr_time, request->sent) >= 0.9){
-        struct sr_packet *packet = request->packets; 
+        struct sr_packet *packet = request->packets;
         /* If packet is sent more than equal or more than 5 times, send ICMP host unreachable message */
         if ((request->times_sent) >= 5) {
             printf("Packet sent more than 5 times\n");
@@ -48,34 +48,33 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
                 uint8_t *buf = packet->buf;
                 char *interface = packet->iface;
                 int packet_len  = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
-                uint8_t *new_packet = malloc(packet_len);  
-		struct sr_if *target_iface = sr_get_interface(sr, packet->iface);
+                uint8_t *new_packet = malloc(packet_len);
                 /* Get Ethernet header */
-                sr_ethernet_hdr_t* eth_hdr = (sr_ethernet_hdr_t *) buf; 
+                sr_ethernet_hdr_t* eth_hdr = (sr_ethernet_hdr_t *) buf;
 
                 /* Get IP header */
                 sr_ip_hdr_t * ip_hdr = (sr_ip_hdr_t *) (buf + sizeof(sr_ethernet_hdr_t));
 
                 /* Create ethernet header */
                 create_ethernet_header (eth_hdr, new_packet, eth_hdr->ether_dhost, eth_hdr->ether_shost, htons(ethertype_ip));
-                
+
                 /* Create IP header */
                 create_ip_header (ip_hdr, new_packet, sr_get_interface(sr, interface)->ip, ip_hdr->ip_src);
 
                 /* Create ICMP Header */
                 create_icmp_type3_header (ip_hdr, new_packet, 3, 1);
-     
+
                 /* Look up routing table for rt entry that is mapped to the source of received packet */
                 struct sr_rt *src_lpm = find_longeset_prefix_match(sr, ip_hdr->ip_src);
 
                 /* Send ICMP host unreachable message */
-		send_ICMP_message(sr, (uint8_t) new_packet, packet_len, 3, 0, src_lpm, target_iface);
-                
+		send_ICMP_message(sr, new_packet, packet_len, 3, 0, src_lpm, interface);
+
                 free(new_packet);
 
                 packet = packet->next;
             }
-            sr_arpreq_destroy(sr_cache, request); 
+            sr_arpreq_destroy(sr_cache, request);
         } else {
             /* Send out arp request */
             struct sr_if *target_iface = sr_get_interface(sr, packet->iface);
@@ -100,12 +99,12 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
             memset(new_arp_hdr->ar_tha, 255, sizeof(unsigned char)*ETHER_ADDR_LEN);
             new_arp_hdr->ar_tip = request->ip;
 
-            sr_send_packet(sr, new_packet, packet_len, target_iface->name);            
+            sr_send_packet(sr, new_packet, packet_len, target_iface->name);
             free(new_packet);
         }
             request->sent = curr_time;
             request->times_sent = request->times_sent + 1;
-    }   
+    }
 }
 
 /* You should not need to touch the rest of this code. */
