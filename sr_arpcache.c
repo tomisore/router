@@ -36,23 +36,20 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 
 void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
     struct sr_arpcache *sr_cache = &sr->cache;
-    time_t curr_time;
-    time(&curr_time);
-    if (difftime(curr_time, request->sent) >= 1.0){
+    time_t current_time;
+    time(&current_time);
+    if (difftime(current_time, request->sent) >= 1.0){
         struct sr_packet *packet = request->packets;
         /* If packet is sent more than equal or more than 5 times, send ICMP host unreachable message */
         if ((request->times_sent) >= 5) {
-            printf("Packet sent more than 5 times\n");
             while (packet) {
                 uint8_t *buf = packet->buf;
                 char *interface = packet->iface;
-                int packet_len  = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
-                uint8_t *new_packet = malloc(packet_len);
-                /* Get Ethernet header */
+                uint8_t *new_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
+                /* Get eth header */
                 sr_ethernet_hdr_t* eth_hdr = (sr_ethernet_hdr_t *) buf;
-
                 /* Get IP header */
-                sr_ip_hdr_t * ip_hdr = (sr_ip_hdr_t *) (buf + sizeof(sr_ethernet_hdr_t));
+		sr_ip_hdr_t * ip_hdr = (sr_ip_hdr_t *) (buf + sizeof(sr_ethernet_hdr_t));
 
                 /* Create ethernet header */
 		sr_ethernet_hdr_t *new_eth_hdr = (sr_ethernet_hdr_t *) new_packet;
@@ -78,7 +75,6 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
 		new_icmp_header->icmp_type = 3;
 		new_icmp_header->icmp_code = 1;
 		new_icmp_header->unused = 0;
-		new_icmp_header->next_mtu = 0;
 		new_icmp_header->icmp_sum = 0;
 		memcpy(new_icmp_header->data, ip_hdr, ICMP_DATA_SIZE);
 		new_icmp_header->icmp_sum = cksum(new_icmp_header, sizeof(sr_icmp_t3_hdr_t));
