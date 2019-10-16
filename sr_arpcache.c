@@ -45,7 +45,8 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
             while (packet) {
                 uint8_t *buf = packet->buf;
                 char *interface = packet->iface;
-                uint8_t *new_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
+		uint8_t packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+                uint8_t *new_packet = malloc(packet_len);
                 /* Get eth header */
                 sr_ethernet_hdr_t* eth_hdr = (sr_ethernet_hdr_t *) buf;
                 /* Get IP header */
@@ -109,7 +110,7 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_instance *sr ){
             sr_send_packet(sr, new_packet, packet_len, target_iface->name);
             free(new_packet);
         }
-            request->sent = curr_time;
+            request->sent = current_time;
             request->times_sent ++;
     }
 }
